@@ -1,52 +1,54 @@
-let lastDeployTime = 0;
-
 export default async function handler(req, res) {
-
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const now = Date.now();
-
-  if (now - lastDeployTime < 60000) {
-    const sisa = Math.ceil((60000 - (now - lastDeployTime)) / 1000);
-    return res.status(429).json({
-      error: `Tunggu ${sisa} detik sebelum deploy lagi`
-    });
-  }
-
-  const { projectName, htmlCode } = req.body;
-  const apiKey = process.env.VERCEL_API_KEY;
-
   try {
+    const token = process.env.VERCEL_API_KEY;
+
+    if (!token) {
+      return res.status(500).json({ error: "Token tidak terbaca" });
+    }
+
+    const { projectName, htmlCode } = req.body;
+
+    if (!projectName || !htmlCode) {
+      return res.status(400).json({ error: "Data tidak lengkap" });
+    }
+
     const response = await fetch("https://api.vercel.com/v13/deployments", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: projectName,
+        name: projectName.toLowerCase(),
         files: [
-          { file: "index.html", data: htmlCode }
+          {
+            file: "index.html",
+            data: htmlCode,
+          },
         ],
-        projectSettings: { framework: null }
-      })
+        projectSettings: {
+          framework: null,
+        },
+      }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(400).json({ error: data.error?.message });
+      return res.status(500).json({ error: data.error?.message || "Deploy gagal" });
     }
 
-    lastDeployTime = Date.now();
-
-    res.json({
-      url: "https://" + data.url
+    return res.status(200).json({
+      url: `https://${data.url}`,
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: err.message,
+    });
   }
 }
