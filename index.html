@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VikkDeploy v3</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+
+body{
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  color:white;
+}
+
+video{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  object-fit:cover;
+  z-index:-2;
+}
+
+.overlay{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:rgba(0,0,0,0.7);
+  z-index:-1;
+}
+
+.container{
+  width:100%;
+  max-width:520px;
+  padding:20px;
+  text-align:center;
+}
+
+.card{
+  background:rgba(15,23,42,0.75);
+  backdrop-filter:blur(20px);
+  border-radius:25px;
+  padding:35px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.7);
+  animation:fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn{
+  from{opacity:0; transform:translateY(20px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
+.logo{width:90px;margin-bottom:15px;}
+
+h1{
+  font-size:24px;
+  background:linear-gradient(90deg,#00ffcc,#00ff88);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.subtitle{
+  font-size:13px;
+  opacity:0.7;
+  margin-bottom:20px;
+}
+
+input{
+  width:100%;
+  padding:14px;
+  margin-top:12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:#0f172a;
+  color:white;
+}
+
+button{
+  width:100%;
+  margin-top:18px;
+  padding:15px;
+  border-radius:14px;
+  border:none;
+  font-weight:600;
+  background:linear-gradient(90deg,#00ffcc,#00ff88);
+  color:#0f172a;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+button:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 30px rgba(0,255,136,0.4);
+}
+
+button:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+}
+
+#result{
+  margin-top:20px;
+  font-size:14px;
+  word-break:break-all;
+}
+</style>
+</head>
+<body>
+
+<video autoplay muted loop>
+  <source src="bg.mp4" type="video/mp4">
+</video>
+<div class="overlay"></div>
+
+<div class="container">
+  <div class="card">
+
+    <img src="logo.jpg" class="logo">
+    <h1>VikkDeploy v3</h1>
+    <div class="subtitle">Upload HTML & Deploy Instantly</div>
+
+    <input type="text" id="projectName" placeholder="Website Name">
+    <input type="file" id="htmlFile" accept=".html">
+
+    <button id="deployBtn" onclick="deploy()">🚀 Deploy Now</button>
+
+    <div id="result"></div>
+
+  </div>
+</div>
+
+<script>
+let cooldown = 0;
+let timer;
+
+async function deploy(){
+  const btn = document.getElementById("deployBtn");
+  const result = document.getElementById("result");
+  const projectName = document.getElementById("projectName").value;
+  const fileInput = document.getElementById("htmlFile");
+
+  if(cooldown > 0) return;
+
+  if(!projectName){
+    result.innerHTML="❌ Isi nama website dulu";
+    return;
+  }
+
+  if(fileInput.files.length === 0){
+    result.innerHTML="❌ Pilih file HTML dulu";
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const htmlCode = await file.text();
+
+  btn.disabled = true;
+  result.innerHTML = "⏳ Deploying...";
+
+  try{
+    const res = await fetch("/api/deploy",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({projectName, htmlCode})
+    });
+
+    const data = await res.json();
+
+    if(data.url){
+      result.innerHTML="✅ Success:<br>"+data.url;
+      setTimeout(()=>window.open(data.url,"_blank"),1000);
+      startCooldown();
+    }else{
+      result.innerHTML="❌ "+data.error;
+      btn.disabled=false;
+    }
+
+  }catch(err){
+    result.innerHTML="❌ Server Error";
+    btn.disabled=false;
+  }
+}
+
+function startCooldown(){
+  cooldown=60;
+  const btn=document.getElementById("deployBtn");
+
+  timer=setInterval(()=>{
+    cooldown--;
+    btn.innerText="Tunggu "+cooldown+" detik";
+    if(cooldown<=0){
+      clearInterval(timer);
+      btn.disabled=false;
+      btn.innerText="🚀 Deploy Now";
+    }
+  },1000);
+}
+</script>
+
+</body>
+</html>
